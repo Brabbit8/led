@@ -1,4 +1,4 @@
-#include ""led_hw.h"
+#include "led_hw.h"
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -17,6 +17,8 @@ void print_help(const char *app_name) {
 
 int main(int argc, char* argv[])
 {
+    led_hw_init();  // 初始化 LED 硬件
+    //
     if (argc != 3) {
         print_help(argv[0]);
         return 1;

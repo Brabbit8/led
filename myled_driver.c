@@ -33,6 +33,7 @@ static int myled_release(struct inode *inode, struct file *file);
 
 // 文件操作结构体
 static const struct file_operations myled_fops = {
+    .read    = NULL,  // 读取操作未实现
     .owner   = THIS_MODULE,
     .open    = myled_open,
     .write   = myled_write,
@@ -129,10 +130,6 @@ static ssize_t myled_write(struct file *file,
     // 检查写入长度
     if (count == 0)
         return 0;
-
-    // 检查 GPIO 是否已经初始化
-    if (!led->gpio)
-        return -ENODEV;
 
     // 从用户空间复制一个字节
     if (copy_from_user(kbuf, buf, 1))
