@@ -1,13 +1,9 @@
-#include "led_hw.h"
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/device.h>
-#include <linux/uaccess.h>
-#include <linux/gpio.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
 void print_help(const char *app_name) {
     printf("Usage: %s /path/to/chardev_file <0/1>\n", app_name);
     printf("    - /path/to/chardev_file: char dev file in /dev/\n");
@@ -17,8 +13,6 @@ void print_help(const char *app_name) {
 
 int main(int argc, char* argv[])
 {
-    led_hw_init();  // 初始化 LED 硬件
-    //
     if (argc != 3) {
         print_help(argv[0]);
         return 1;

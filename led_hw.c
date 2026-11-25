@@ -1,23 +1,24 @@
-#include "led_hw.h"
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/init.h>
 #include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/device.h>
-#include <linux/uaccess.h>
-#include <linux/gpio.h>
+#include "led_hw.h"
+#include <linux/io.h>
 static void __iomem* IMX6U_CCM_CCGR1 = NULL;
 static void __iomem* SW_MUX_GPIO1_IO03 = NULL;
 static void __iomem* SW_PAD_GPIO1_IO03 = NULL;
 static void __iomem* GPIO1_DR = NULL;
 static void __iomem* GPIO1_GDIR = NULL;
+static void ioremapping_registers(void);  // 映射寄存器地址
+static void enable_gpio_clock(void);     // 开启 GPIO 时钟
+static void gpio_func_init(void);        // 配置 GPIO 引脚功能
+
 // led硬件初始化函数
-void led_hw_init(void)
+int led_hw_init(void)
 {
     ioremapping_registers();// 映射寄存器地址
     enable_gpio_clock();// 开启 GPIO 时钟
     gpio_func_init();// 配置 GPIO 引脚功能
+    return 1;
 }
 // led硬件反初始化函数
 void led_hw_deinit(void) 
@@ -49,7 +50,7 @@ bool led_get_status(void) {
 }
 //映射寄存器地址
 static void ioremapping_registers(void) {
-#define IOREMAP(BASE_ADDR) ioremap(BASE_ADDR, kRegSize)
+#define IOREMAP(BASE_ADDR) ioremap(BASE_ADDR, 0x1000)
     IMX6U_CCM_CCGR1 = IOREMAP(kCCM_CCGR1_BASE);
     SW_MUX_GPIO1_IO03 = IOREMAP(kSW_MUX_GPIO1_IO03_BASE);
     SW_PAD_GPIO1_IO03 = IOREMAP(kSW_PAD_GPIO1_IO03_BASE);

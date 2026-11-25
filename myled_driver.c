@@ -1,6 +1,5 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -8,14 +7,14 @@
 #include <linux/slab.h>
 #include <linux/gpio/consumer.h>
 #include <linux/errno.h>
-
+static ssize_t myled_read(struct file *file, char __user *buf,
+                          size_t count, loff_t *ppos);
 struct led
 {
     dev_t devid;                  // 设备号
     struct cdev cdev;             // 字符设备
     struct class *class;          // 设备类
     struct device *device;        // 设备节点
-    struct gpio_desc *gpio;       // GPIO 描述符
     int state;                    // LED 状态
 };
 
@@ -33,7 +32,7 @@ static int myled_release(struct inode *inode, struct file *file);
 
 // 文件操作结构体
 static const struct file_operations myled_fops = {
-    .read    = NULL,  // 读取操作未实现
+    .read    = myled_read, 
     .owner   = THIS_MODULE,
     .open    = myled_open,
     .write   = myled_write,
@@ -137,11 +136,11 @@ static ssize_t myled_write(struct file *file,
 
     // 判断用户命令
     if (kbuf[0] == '1') {
-        gpiod_set_value_cansleep(led->gpio, 1);
+        led_set_status(true);
         led->state = 1;
     }
     else if (kbuf[0] == '0') {
-        gpiod_set_value_cansleep(led->gpio, 0);
+        led_set_status(false);
         led->state = 0;
     }
     else {
@@ -150,7 +149,14 @@ static ssize_t myled_write(struct file *file,
 
     return 1;
 }
+//读操作函数
+static ssize_t myled_read(struct file *file, char __user *buf,
+                          size_t count, loff_t *ppos)
+{
+    char value = led_get_status() ? '1' : '0';
 
+    return simple_read_from_buffer(buf, count, ppos, &value, 1);
+}
 // release 函数
 static int myled_release(struct inode *inode, struct file *file)
 {
@@ -178,7 +184,6 @@ static void __exit myled_exit(void)
 
     pr_info("myled: driver removed\n");
 }
-
 module_init(myled_init);
 module_exit(myled_exit);
 
