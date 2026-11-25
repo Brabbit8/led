@@ -5,8 +5,8 @@
 #include <linux/device.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/gpio/consumer.h>
 #include <linux/errno.h>
+#include "led_hw.h"
 static ssize_t myled_read(struct file *file, char __user *buf,
                           size_t count, loff_t *ppos);
 struct led
@@ -50,10 +50,14 @@ static int __init myled_init(void)
         return -ENOMEM;
     }
 
+    ret = led_hw_init();
+    if (ret)
+        goto err_alloc;
+
     // 2. 动态申请设备号
     ret = alloc_chrdev_region(&led_handle->devid, 0, 1, "myled");
     if (ret < 0) {
-        goto err_alloc;
+        goto err_hw;
     }
 
     // 3. 初始化字符设备
@@ -101,6 +105,9 @@ err_class:
 err_cdev:
     unregister_chrdev_region(led_handle->devid, 1);
 
+err_hw:
+    led_hw_deinit();
+
 err_alloc:
     kfree(led_handle);
     led_handle = NULL;
@@ -129,6 +136,8 @@ static ssize_t myled_write(struct file *file,
     // 检查写入长度
     if (count == 0)
         return 0;
+    if (count != 1)
+        return -EINVAL;
 
     // 从用户空间复制一个字节
     if (copy_from_user(kbuf, buf, 1))
@@ -179,6 +188,7 @@ static void __exit myled_exit(void)
     unregister_chrdev_region(led_handle->devid, 1);
 
     // 5. 释放设备结构体
+    led_hw_deinit();
     kfree(led_handle);
     led_handle = NULL;
 

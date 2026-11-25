@@ -1,34 +1,56 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/fs.h>
-#include "led_hw.h"
 #include <linux/io.h>
-static void __iomem* IMX6U_CCM_CCGR1 = NULL;
-static void __iomem* SW_MUX_GPIO1_IO03 = NULL;
-static void __iomem* SW_PAD_GPIO1_IO03 = NULL;
-static void __iomem* GPIO1_DR = NULL;
-static void __iomem* GPIO1_GDIR = NULL;
-static void ioremapping_registers(void);  // 映射寄存器地址
+#include <linux/errno.h>
+#include "led_hw.h"
+
+#define IMX6ULL_CCM_BASE             0x020C4000UL
+#define IMX6ULL_IOMUXC_BASE          0x020E0000UL
+#define IMX6ULL_GPIO1_BASE            0x0209C000UL
+#define IMX6ULL_MAP_SIZE             0x1000
+#define CCM_CCGR1_OFFSET              0x06CUL
+#define SW_MUX_GPIO1_IO03_OFFSET      0x068UL
+#define SW_PAD_GPIO1_IO03_OFFSET      0x2F4UL
+#define GPIO1_DR_OFFSET               0x000UL
+#define GPIO1_GDIR_OFFSET             0x004UL
+
+static void __iomem *ccm_base;
+static void __iomem *iomuxc_base;
+static void __iomem *gpio1_base;
+
+#define IMX6U_CCM_CCGR1 (ccm_base + CCM_CCGR1_OFFSET)
+#define SW_MUX_GPIO1_IO03 (iomuxc_base + SW_MUX_GPIO1_IO03_OFFSET)
+#define SW_PAD_GPIO1_IO03 (iomuxc_base + SW_PAD_GPIO1_IO03_OFFSET)
+#define GPIO1_DR (gpio1_base + GPIO1_DR_OFFSET)
+#define GPIO1_GDIR (gpio1_base + GPIO1_GDIR_OFFSET)
+static int ioremapping_registers(void);   // 映射寄存器地址
 static void enable_gpio_clock(void);     // 开启 GPIO 时钟
 static void gpio_func_init(void);        // 配置 GPIO 引脚功能
 
 // led硬件初始化函数
 int led_hw_init(void)
-{
-    ioremapping_registers();// 映射寄存器地址
+{   //确认寄存器映射成功
+    int ret = ioremapping_registers();
+
+    if (ret)
+        return ret;
     enable_gpio_clock();// 开启 GPIO 时钟
     gpio_func_init();// 配置 GPIO 引脚功能
-    return 1;
+    return 0;
 }
 // led硬件反初始化函数
 void led_hw_deinit(void) 
 {
     pr_info("Deinit the LED Hardware\n");
-    iounmap(IMX6U_CCM_CCGR1);
-    iounmap(SW_MUX_GPIO1_IO03);
-    iounmap(SW_PAD_GPIO1_IO03);
-    iounmap(GPIO1_DR);
-    iounmap(GPIO1_GDIR);
+    if (ccm_base)
+        iounmap(ccm_base);
+    if (iomuxc_base)
+        iounmap(iomuxc_base);
+    if (gpio1_base)
+        iounmap(gpio1_base);
+    ccm_base = NULL;
+    iomuxc_base = NULL;
+    gpio1_base = NULL;
 }
 // 设置 LED 状态函数
 void led_set_status(bool status) {
@@ -49,33 +71,32 @@ bool led_get_status(void) {
     return (gpio_val & (1 << 3)) == 0;  // 低电平为亮
 }
 //映射寄存器地址
-static void ioremapping_registers(void) {
-#define IOREMAP(BASE_ADDR) ioremap(BASE_ADDR, 0x1000)
-    IMX6U_CCM_CCGR1 = IOREMAP(kCCM_CCGR1_BASE);
-    SW_MUX_GPIO1_IO03 = IOREMAP(kSW_MUX_GPIO1_IO03_BASE);
-    SW_PAD_GPIO1_IO03 = IOREMAP(kSW_PAD_GPIO1_IO03_BASE);
-    GPIO1_DR = IOREMAP(kGPIO1_DR_BASE);
-    GPIO1_GDIR = IOREMAP(kGPIO1_GDIR_BASE);
-#undef IOREMAP
+static int ioremapping_registers(void) {
+    ccm_base = ioremap(IMX6ULL_CCM_BASE, IMX6ULL_MAP_SIZE);
+    if (!ccm_base)
+        goto err;
+    iomuxc_base = ioremap(IMX6ULL_IOMUXC_BASE, IMX6ULL_MAP_SIZE);
+    if (!iomuxc_base)
+        goto err;
+    gpio1_base = ioremap(IMX6ULL_GPIO1_BASE, IMX6ULL_MAP_SIZE);
+    if (!gpio1_base)
+        goto err;
 
-    pr_info("IMX6U_CCM_CCGR1    = 0x%p (phys: 0x%x)\n", IMX6U_CCM_CCGR1, kCCM_CCGR1_BASE);
-    pr_info("SW_MUX_GPIO1_IO03  = 0x%p (phys: 0x%x)\n", SW_MUX_GPIO1_IO03, kSW_MUX_GPIO1_IO03_BASE);
-    pr_info("SW_PAD_GPIO1_IO03  = 0x%p (phys: 0x%x)\n", SW_PAD_GPIO1_IO03, kSW_PAD_GPIO1_IO03_BASE);
-    pr_info("GPIO1_DR           = 0x%p (phys: 0x%x)\n", GPIO1_DR, kGPIO1_DR_BASE);
-    pr_info("GPIO1_GDIR         = 0x%p (phys: 0x%x)\n", GPIO1_GDIR, kGPIO1_GDIR_BASE);
+    return 0;
+
+err:
+    led_hw_deinit();
+    return -ENOMEM;
 }
 //开启gpio时钟
 static void enable_gpio_clock(void) {
     u32 clock_settings = readl(IMX6U_CCM_CCGR1);
     pr_info("CCGR1 raw value: 0x%08x\n Bits: ", clock_settings);
     pr_info("\n");
-    pr_bin_u32(clock_settings);
-
     clock_settings &= ~(0b11 << 26);  // 清除原来的值
     clock_settings |= 0b11 << 26;     // 设置为 11
 
     pr_info("CCGR1 new raw value: 0x%08x \nBits: ", clock_settings);
-    pr_bin_u32(clock_settings);
     pr_info("\n");
     writel(clock_settings, IMX6U_CCM_CCGR1);
 }

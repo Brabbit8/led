@@ -36,13 +36,18 @@ int main(int argc, char* argv[])
     }
 
     /* 写入控制命令 */
-    write(dev_file_fd, user_indication, 1);
+    if (write(dev_file_fd, user_indication, 1) != 1) {
+        printf("Failed to write the file: %s, code: %d\n", dev_file, errno);
+        close(dev_file_fd);
+        return 1;
+    }
 
     /* 读取设备状态 */
     char buffer[2] = {0};
     const int bytes = read(dev_file_fd, buffer, 1);
-    if (bytes < 0) {
+    if (bytes != 1) {
         printf("Failed to read the file: %s, code: %d\n", dev_file, errno);
+        close(dev_file_fd);
         return 1;
     }
 
@@ -53,8 +58,10 @@ int main(int argc, char* argv[])
         printf("LED is off now, status from the dev file!\n");
     } else {
         printf("Unknown value: %s", buffer);
+        close(dev_file_fd);
         return -1;
     }
 
+    close(dev_file_fd);
     return 0;
 }
