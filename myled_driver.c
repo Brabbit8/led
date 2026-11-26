@@ -20,96 +20,6 @@ struct led
 };
 
 static struct led *led_handle;    // LED 设备结构体指针
-
-// 函数声明
-static int myled_open(struct inode *inode, struct file *file);
-
-static ssize_t myled_write(struct file *file,
-                           const char __user *buf,
-                           size_t count,
-                           loff_t *ppos);
-
-static int myled_release(struct inode *inode, struct file *file);
-
-static ssize_t myled_read(struct file *file, char __user *buf,
-                          size_t count, loff_t *ppos);
-
-// 驱动初始化函数
-static int __init myled_init(void)
-{
-    int ret;
-
-    // 1. 动态分配并初始化设备结构体
-    led_handle = kzalloc(sizeof(struct led), GFP_KERNEL);
-    if (!led_handle) {
-        return -ENOMEM;
-    }
-
-    ret = led_hw_init();
-    if (ret)
-        goto err_alloc;
-
-    // 2. 动态申请设备号
-    ret = alloc_chrdev_region(&led_handle->devid, 0, 1, "myled");
-    if (ret < 0) {
-        goto err_hw;
-    }
-
-    // 3. 初始化字符设备
-    cdev_init(&led_handle->cdev, &myled_fops);
-
-    // 4. 注册字符设备
-    ret = cdev_add(&led_handle->cdev, led_handle->devid, 1);
-    if (ret < 0) {
-        goto err_cdev;
-    }
-
-    // 5. 创建设备类
-    led_handle->class = class_create("myled_class");
-    if (IS_ERR(led_handle->class)) {
-        ret = PTR_ERR(led_handle->class);
-        goto err_class;
-    }
-
-    // 6. 创建设备节点
-    led_handle->device = device_create(
-        led_handle->class,
-        NULL,
-        led_handle->devid,
-        NULL,
-        "myled"
-    );
-
-    if (IS_ERR(led_handle->device)) {
-        ret = PTR_ERR(led_handle->device);
-        goto err_device;
-    }
-
-    pr_info("myled: driver initialized\n");
-
-    return 0;
-
-// 错误处理：按照资源申请的逆序释放
-
-err_device:
-    class_destroy(led_handle->class);
-
-err_class:
-    cdev_del(&led_handle->cdev);
-
-err_cdev:
-    unregister_chrdev_region(led_handle->devid, 1);
-
-err_hw:
-    led_hw_deinit();
-
-err_alloc:
-    kfree(led_handle);
-    led_handle = NULL;
-
-    return ret;
-}
-
 /*
 @description: 打开设备文件
 @return: 0 on success, negative error code on failure
@@ -188,7 +98,90 @@ static int myled_release(struct inode *inode, struct file *file)
 {
     return 0;
 }
+// 文件操作结构体
+static const struct file_operations myled_fops = {
+    .read    = myled_read, 
+    .owner   = THIS_MODULE,
+    .open    = myled_open,
+    .write   = myled_write,
+    .release = myled_release,
+};
 
+// 驱动初始化函数
+static int __init myled_init(void)
+{
+    int ret;
+
+    // 1. 动态分配并初始化设备结构体
+    led_handle = kzalloc(sizeof(struct led), GFP_KERNEL);
+    if (!led_handle) {
+        return -ENOMEM;
+    }
+
+    ret = led_hw_init();
+    if (ret)
+        goto err_alloc;
+
+    // 2. 动态申请设备号
+    ret = alloc_chrdev_region(&led_handle->devid, 0, 1, "myled");
+    if (ret < 0) {
+        goto err_hw;
+    }
+
+    // 3. 初始化字符设备
+    cdev_init(&led_handle->cdev, &myled_fops);
+
+    // 4. 注册字符设备
+    ret = cdev_add(&led_handle->cdev, led_handle->devid, 1);
+    if (ret < 0) {
+        goto err_cdev;
+    }
+
+    // 5. 创建设备类
+    led_handle->class = class_create("myled_class");
+    if (IS_ERR(led_handle->class)) {
+        ret = PTR_ERR(led_handle->class);
+        goto err_class;
+    }
+
+    // 6. 创建设备节点
+    led_handle->device = device_create(
+        led_handle->class,
+        NULL,
+        led_handle->devid,
+        NULL,
+        "myled"
+    );
+
+    if (IS_ERR(led_handle->device)) {
+        ret = PTR_ERR(led_handle->device);
+        goto err_device;
+    }
+
+    pr_info("myled: driver initialized\n");
+
+    return 0;
+
+// 错误处理：按照资源申请的逆序释放
+
+err_device:
+    class_destroy(led_handle->class);
+
+err_class:
+    cdev_del(&led_handle->cdev);
+
+err_cdev:
+    unregister_chrdev_region(led_handle->devid, 1);
+
+err_hw:
+    led_hw_deinit();
+
+err_alloc:
+    kfree(led_handle);
+    led_handle = NULL;
+
+    return ret;
+}
 /*
 @description: 卸载驱动函数
 @return: void
@@ -214,15 +207,6 @@ static void __exit myled_exit(void)
 
     pr_info("myled: driver removed\n");
 }
-
-// 文件操作结构体
-static const struct file_operations myled_fops = {
-    .read    = myled_read, 
-    .owner   = THIS_MODULE,
-    .open    = myled_open,
-    .write   = myled_write,
-    .release = myled_release,
-};
 module_init(myled_init);
 module_exit(myled_exit);
 
