@@ -7,8 +7,9 @@
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include "led_hw.h"
-static ssize_t myled_read(struct file *file, char __user *buf,
-                          size_t count, loff_t *ppos);
+/*
+@description: LED 设备结构体 
+*/
 struct led
 {
     dev_t devid;                  // 设备号
@@ -30,14 +31,8 @@ static ssize_t myled_write(struct file *file,
 
 static int myled_release(struct inode *inode, struct file *file);
 
-// 文件操作结构体
-static const struct file_operations myled_fops = {
-    .read    = myled_read, 
-    .owner   = THIS_MODULE,
-    .open    = myled_open,
-    .write   = myled_write,
-    .release = myled_release,
-};
+static ssize_t myled_read(struct file *file, char __user *buf,
+                          size_t count, loff_t *ppos);
 
 // 驱动初始化函数
 static int __init myled_init(void)
@@ -115,7 +110,12 @@ err_alloc:
     return ret;
 }
 
-// open 函数
+/*
+@description: 打开设备文件
+@return: 0 on success, negative error code on failure
+@param inode: inode 结构体
+@param file: file 结构体
+ */
 static int myled_open(struct inode *inode, struct file *file)
 {
     // 保存设备结构体指针
@@ -124,7 +124,14 @@ static int myled_open(struct inode *inode, struct file *file)
     return 0;
 }
 
-// write 函数
+/*
+@description: 写操作函数
+@return: number of bytes written on success, negative error code on failure
+@param file: file 结构体
+@param buf: 用户空间缓冲区
+@param count: 写入字节数
+@param ppos: 文件偏移量
+ */
 static ssize_t myled_write(struct file *file,
                            const char __user *buf,
                            size_t count,
@@ -158,7 +165,13 @@ static ssize_t myled_write(struct file *file,
 
     return 1;
 }
-//读操作函数
+/*@description: 读操作函数
+@return: number of bytes read on success, negative error code on failure
+@param file: file 结构体
+@param buf: 用户空间缓冲区
+@param count: 读取字节数
+@param ppos: 文件偏移量
+*/
 static ssize_t myled_read(struct file *file, char __user *buf,
                           size_t count, loff_t *ppos)
 {
@@ -166,13 +179,20 @@ static ssize_t myled_read(struct file *file, char __user *buf,
 
     return simple_read_from_buffer(buf, count, ppos, &value, 1);
 }
-// release 函数
+/*@description: 释放设备文件
+@return: 0 on success, negative error code on failure
+@param inode: inode 结构体
+@param file: file 结构体
+*/
 static int myled_release(struct inode *inode, struct file *file)
 {
     return 0;
 }
 
-// 驱动退出函数
+/*
+@description: 卸载驱动函数
+@return: void
+*/
 static void __exit myled_exit(void)
 {
     // 1. 删除设备节点
@@ -194,9 +214,19 @@ static void __exit myled_exit(void)
 
     pr_info("myled: driver removed\n");
 }
+
+// 文件操作结构体
+static const struct file_operations myled_fops = {
+    .read    = myled_read, 
+    .owner   = THIS_MODULE,
+    .open    = myled_open,
+    .write   = myled_write,
+    .release = myled_release,
+};
 module_init(myled_init);
 module_exit(myled_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("myled");
 MODULE_DESCRIPTION("My first LED character device driver");
+MODULE_AUTHOR("Lai");
