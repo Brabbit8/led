@@ -1,0 +1,56 @@
+TARGET: /home/lai/linux_driver/led/Makefile
+GOAL: provide a Makefile for myled_driver.c + led_hw.c, cross-built for the i.MX6ULL Linux kernel.
+
+BASELINE
+Command: cd /home/lai/linux_driver/led && make
+Observed output:
+make -C /lib/modules/6.18.33.2-microsoft-standard-WSL2/build M=/home/lai/linux_driver/led modules
+make[1]: *** /lib/modules/6.18.33.2-microsoft-standard-WSL2/build: No such file or directory.  Stop.
+make: *** [Makefile:10: all] Error 2
+Process exit status: 1 (the make diagnostic reports the failed rule as Error 2; the missing WSL kernel build directory was the cause).
+
+MODIFIED
+Command: cd /home/lai/linux_driver/led && make -f Makefile.imx6ull -j8
+Observed output:
+make -C /home/lai/imx-forge/third_party/linux_mainline O=/home/lai/imx-forge/out/linux M=/home/lai/linux_driver/led ARCH=arm CROSS_COMPILE=/opt/arm-gnu-toolchain/bin/arm-none-linux-gnueabihf- modules
+  CC [M]  myled_driver.o
+  CC [M]  led_hw.o
+  LD [M]  myled.o
+  MODPOST Module.symvers
+  CC [M]  myled.mod.o
+  CC [M]  .module-common.o
+  LD [M]  myled.ko
+Exit status: 0.
+Changed build settings: source tree=/home/lai/imx-forge/third_party/linux_mainline; output tree=/home/lai/imx-forge/out/linux; ARCH=arm; CROSS_COMPILE=/opt/arm-gnu-toolchain/bin/arm-none-linux-gnueabihf-; module objects=myled_driver.o and led_hw.o.
+
+ROLLBACK
+Action: copy MODIFIED_FILE to rollback-copy; run ROLLBACK.sh rollback-copy.
+Observed hashes:
+BASELINE.Makefile: ac5d3e74b1368c8df2ef6ede131142caf0a1dbc47f2ee80c63fd33ef55eb937e
+rollback-copy:     ac5d3e74b1368c8df2ef6ede131142caf0a1dbc47f2ee80c63fd33ef55eb937e
+Restored hash equals baseline hash.
+Matching command: cd /home/lai/linux_driver/led && make -f .makefile-transaction/rollback-copy
+Observed output:
+make -C /lib/modules/6.18.33.2-microsoft-standard-WSL2/build M=/home/lai/linux_driver/led modules
+make[1]: *** /lib/modules/6.18.33.2-microsoft-standard-WSL2/build: No such file or directory.  Stop.
+make: *** [.makefile-transaction/rollback-copy:10: all] Error 2
+Process exit status: 1 (the make diagnostic reports the failed rule as Error 2).
+
+Role paths:
+MODIFIED_FILE: /home/lai/linux_driver/led/Makefile.imx6ull
+DIFF_FILE: /home/lai/linux_driver/led/.makefile-transaction/DIFF_FILE
+VERIFICATION.txt: /home/lai/linux_driver/led/.makefile-transaction/VERIFICATION.txt
+ROLLBACK.sh: /home/lai/linux_driver/led/.makefile-transaction/ROLLBACK.sh
+
+The pre-existing Makefile was left byte-for-byte unchanged. SHA256: AC5D3E74B1368C8DF2EF6EDE131142CAF0A1DBC47F2EE80C63FD33EF55EB937E
+
+FOLLOW-UP BOARD-TEST READINESS CHECK (2026-11-26)
+Commands: modinfo -F vermagic /home/lai/linux_driver/led/myled.ko; make -s -C /home/lai/imx-forge/third_party/linux_mainline O=/home/lai/imx-forge/out/linux kernelrelease
+Observed outputs:
+7.2.9-dirty mod_unload modversions ARMv6 p2v8
+7.2.9-dirty
+The module vermagic release matches the kernel build release and the previously reported board uname -r (7.2.9-dirty).
+Module: /home/lai/linux_driver/led/myled.ko; 10352 bytes; SHA256 d45f06a67c66b2166e1d718612404fd266bf1bf25ff0f11a573118914fa304da.
+NFS check: /home/lai/imx-forge/rootfs/nfs/root/myled.ko does not exist yet, so it has not been deployed or loaded in this check.
+Hardware review: led_hw_init() writes CCM/IOMUXC/GPIO1 registers and configures GPIO1_IO03 as an output high (LED off). led_set_status() then drives GPIO1_IO03 low for on and high for off. Loading changes hardware state; this check did not verify that the user's Mini board LED is physically wired to GPIO1_IO03.
+Conclusion: kernel ABI compatibility is verified; actual-board LED compatibility remains unverified and must be confirmed against the board schematic/pin usage before toggling the LED.

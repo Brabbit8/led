@@ -1,0 +1,1 @@
+savedcmd_myled.ko := /opt/arm-gnu-toolchain/bin/arm-none-linux-gnueabihf-ld -r -EL -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T /home/lai/imx-forge/out/linux/scripts/module.lds -o myled.ko myled.o myled.mod.o .module-common.o

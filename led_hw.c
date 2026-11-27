@@ -3,7 +3,7 @@
 #include <linux/io.h>
 #include <linux/errno.h>
 #include "led_hw.h"
-
+//@description: LED 硬件相关寄存器地址定义
 #define IMX6ULL_CCM_BASE             0x020C4000UL
 #define IMX6ULL_IOMUXC_BASE          0x020E0000UL
 #define IMX6ULL_GPIO1_BASE            0x0209C000UL
@@ -13,11 +13,11 @@
 #define SW_PAD_GPIO1_IO03_OFFSET      0x2F4UL
 #define GPIO1_DR_OFFSET               0x000UL
 #define GPIO1_GDIR_OFFSET             0x004UL
-
+//@description: LED 硬件相关寄存器映射指针
 static void __iomem *ccm_base;
 static void __iomem *iomuxc_base;
 static void __iomem *gpio1_base;
-
+//@description: LED 硬件相关寄存器地址宏定义
 #define IMX6U_CCM_CCGR1 (ccm_base + CCM_CCGR1_OFFSET)
 #define SW_MUX_GPIO1_IO03 (iomuxc_base + SW_MUX_GPIO1_IO03_OFFSET)
 #define SW_PAD_GPIO1_IO03 (iomuxc_base + SW_PAD_GPIO1_IO03_OFFSET)

@@ -1,0 +1,23 @@
+ifneq ($(KERNELRELEASE),)
+obj-m := myled.o
+myled-y := myled_driver.o led_hw.o
+else
+
+KDIR ?= /home/lai/imx-forge/third_party/linux_mainline
+KOUT ?= /home/lai/imx-forge/out/linux
+ARCH ?= arm
+CROSS_COMPILE ?= /opt/arm-gnu-toolchain/bin/arm-none-linux-gnueabihf-
+MODULE_DIR := $(CURDIR)
+
+.PHONY: all clean app
+
+all:
+	$(MAKE) -C $(KDIR) O=$(KOUT) M=$(MODULE_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
+
+clean:
+	$(MAKE) -C $(KDIR) O=$(KOUT) M=$(MODULE_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) clean
+
+app:
+	$(CC) -Wall -Wextra -Werror -o app/led_test app/led_test.c
+
+endif
